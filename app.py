@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, session
-import openai
+from openai import OpenAI
 import yaml
+import os
 
 # Load the config.yaml file
 with open('config.yaml', 'r') as file:
@@ -11,7 +12,7 @@ openai_api_key = config['openaiapikey']
 flask_secret_key = config['flask_secret_key']
 
 #Initialize OpenAI API key
-openai.api_key = openai_api_key
+# openai.api_key = openai_api_key
 
 app = Flask(__name__)
 app.secret_key = flask_secret_key  # Use the secret key from YAML
@@ -32,13 +33,20 @@ def query():
     if not context:
         return jsonify({'error': 'Context not initialized'}), 400
 
-    response = openai.Completion.create(
-        model="text-davinci-004",
-        prompt=context + "\n" + query_text,
-        max_tokens=150
+    client = OpenAI(
+        api_key = openai_api_key
     )
 
-    return jsonify({'response': response.choices[0].text.strip()}), 200
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        max_tokens=150,
+        messages=[
+            {"role": "system", "content": context},
+            {"role": "user", "content": query_text}
+        ]
+    )
+    
+    return jsonify({'response': response.choices[0].message.content}), 200
 
 if __name__ == '__main__':
     app.run(debug=True)
