@@ -20,8 +20,9 @@ app.secret_key = flask_secret_key  # Use the secret key from YAML
 # Route to initialize context
 @app.route('/initialize_context', methods=['POST'])
 def initialize_context():
-    context = request.json.get('context', '')
-    session['context'] = context
+    with open('context.txt', 'r') as context_file:
+        context = context_file.read()
+        session["context"] = context
     return jsonify({'message': 'Context initialized'}), 200
 
 # Route to handle queries
