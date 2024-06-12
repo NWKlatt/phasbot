@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost Characteristics</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+  <style>
+    .characteristic-field {
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="section">
+    <div class="container">
+      <h1 class="title">Enter Ghost Characteristics</h1>
+      <form id="characteristics-form" method="POST">
+        <div id="characteristics-container">
+          <div class="field characteristic-field">
+            <label class="label">Characteristic</label>
+            <div class="control">
+              <input class="input" type="text" name="characteristics" placeholder="Enter a characteristic">
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <div class="control">
+            <button type="button" id="add-characteristic" class="button is-info">Add Another Characteristic</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="control">
+            <button type="submit" class="button is-primary">Submit</button>
+          </div>
+        </div>
+      </form>
+      <div id="response-container" class="notification is-info is-hidden">
+        <p id="response-message"></p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('characteristics-form');
+      const characteristicsContainer = document.getElementById('characteristics-container');
+      const addButton = document.getElementById('add-characteristic');
+      const responseContainer = document.getElementById('response-container');
+      const responseMessage = document.getElementById('response-message');
+
+      function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+      }
+
+      function setCookie(name, value, days) {
+        const d = new Date();
+        d.setTime(d.getTime() + (days * 24 * 60 * 60 * 1000));
+        const expires = `expires=${d.toUTCString()}`;
+        document.cookie = `${name}=${value}; ${expires}; path=/`;
+      }
+
+      addButton.addEventListener('click', () => {
+        const newField = document.createElement('div');
+        newField.classList.add('field', 'characteristic-field');
+        newField.innerHTML = `
+        <label class="label">Characteristic</label>
+        <div class="control">
+          <input class="input" type="text" name="characteristics" placeholder="Enter a characteristic">
+        </div>
+      `;
+        characteristicsContainer.appendChild(newField);
+      });
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const characteristics = Array.from(document.querySelectorAll('input[name="characteristics"]'))
+          .map(input => input.value)
+          .filter(value => value.trim() !== '');
+
+        try {
+          // Initialize context
+          const initResponse = await fetch('http://127.0.0.1:5000/initialize_context', {
+            method: 'POST',
+            credentials: 'same-origin',
+            mode: 'cors',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+
+          if (!initResponse.ok) {
+            throw new Error('Failed to initialize context');
+          }
+
+          // Get session cookie from the response if not already set
+          if (!getCookie('session')) {
+            const session = initResponse.headers.get('Set-Cookie');
+            if (session) {
+              const sessionId = session.split('=')[1].split(';')[0];
+              setCookie('session', sessionId, 7); // setting the session cookie for 7 days
+            }
+          }
+
+          // Send query
+          const sessionCookie = getCookie('session');
+          const queryResponse = await fetch('http://127.0.0.1:5000/query', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'Cookie': `session=${sessionCookie}`
+            },
+            body: JSON.stringify({ behaviors: characteristics }),
+            credentials: 'same-origin',  // Ensure cookies are included in the request
+            mode: 'cors'  // Ensure CORS is enabled
+          });
+
+          if (!queryResponse.ok) {
+            throw new Error('Network response was not ok');
+          }
+
+          const result = await queryResponse.json();
+          responseMessage.textContent = result.response;
+          responseContainer.classList.remove('is-hidden');
+        } catch (error) {
+          responseMessage.textContent = 'Error: ' + error.message;
+          responseContainer.classList.remove('is-hidden');
+        }
+      });
+    });
+  </script>
+
+
+
+</body>
+
+</html>
